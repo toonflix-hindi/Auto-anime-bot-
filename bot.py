@@ -1,5 +1,7 @@
 import os
 import asyncio
+import threading
+from flask import Flask
 from telegram import Update
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
@@ -9,7 +11,22 @@ from downloader import smart_download
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
+# ---------- Flask Web Server (UptimeRobot ke liye) ----------
+web_app = Flask(__name__)
 
+
+@web_app.route("/")
+@web_app.route("/health")
+def health():
+    return "OK", 200
+
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    web_app.run(host="0.0.0.0", port=port)
+
+
+# ---------- Telegram Bot Handlers ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🎌 Multi-Site Anime Downloader Bot\n\n"
@@ -57,18 +74,28 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(f"⚠️ Error: {str(e)[:300]}")
 
 
-async def health(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def health_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Bot zinda hai.")
 
 
+# ---------- Main ----------
 def main():
     if not BOT_TOKEN:
         raise ValueError("BOT_TOKEN env var set karo!")
+
+    # 1. Flask web server ko background thread mein chalao
+    web_thread = threading.Thread(target=run_web_server)
+    web_thread.daemon = True
+    web_thread.start()
+    print("🌐 Web server start ho gaya (health check ke liye).")
+
+    # 2. Telegram bot ko main thread mein chalao
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("health", health))
+    app.add_handler(CommandHandler("health", health_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_link))
-    print("🤖 Bot start ho raha hai...")
+
+    print("🤖 Telegram Bot start ho raha hai...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
