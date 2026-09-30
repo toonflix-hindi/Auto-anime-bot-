@@ -83,20 +83,23 @@ def main():
     if not BOT_TOKEN:
         raise ValueError("BOT_TOKEN env var set karo!")
 
-    # 1. Flask web server ko background thread mein chalao
+    # 1. Flask web server ko background daemon thread mein chalao
     web_thread = threading.Thread(target=run_web_server)
     web_thread.daemon = True
     web_thread.start()
     print("🌐 Web server start ho gaya (health check ke liye).")
 
-    # 2. Telegram bot ko main thread mein chalao
+    # 2. Main thread ke liye naya event loop set karo
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+    # 3. Telegram bot ko main thread mein chalao
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("health", health_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_link))
 
     print("🤖 Telegram Bot start ho raha hai...")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    app.run_polling(allowed_updates=Update.ALL_TYPES, close_loop=False)
 
 
 if __name__ == "__main__":
