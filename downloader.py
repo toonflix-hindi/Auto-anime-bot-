@@ -1,5 +1,4 @@
 import os
-import re
 import yt_dlp
 import cloudscraper
 from bs4 import BeautifulSoup
@@ -12,6 +11,7 @@ HEADERS = {
                   "AppleWebKit/537.36 (KHTML, like Gecko) "
                   "Chrome/120.0.0.0 Safari/537.36"
 }
+
 
 # ---------- Generic yt-dlp downloader (YouTube, etc.) ----------
 def download_ytdlp(url):
@@ -42,21 +42,15 @@ def download_ytdlp(url):
 
 # ---------- AnimePahe scraper + yt-dlp ----------
 def download_animepahe(url):
-    """
-    AnimePahe episode page ka URL lo, kwik link nikalo,
-    phir yt-dlp se download karo.
-    """
     try:
         scraper = cloudscraper.create_scraper()
         r = scraper.get(url, headers=HEADERS, timeout=30)
         soup = BeautifulSoup(r.text, "html.parser")
 
-        # AnimePahe ke download buttons
         buttons = soup.select("a.btn.btn-primary")
         if not buttons:
             return None
 
-        # 720p ya 1080p prefer karo
         chosen = None
         for b in buttons:
             text = b.get_text(strip=True).lower()
@@ -69,7 +63,6 @@ def download_animepahe(url):
         if not chosen:
             chosen = buttons[0]["href"]
 
-        # Kwik page se final link nikalo (yt-dlp khud handle kar lega)
         return download_ytdlp(chosen)
 
     except Exception as e:
